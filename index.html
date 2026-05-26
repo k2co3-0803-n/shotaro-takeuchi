@@ -3,10 +3,902 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple Page</title>
+  <title>Bullet Eclipse</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, "Segoe UI", system-ui, sans-serif;
+      background: #0b0d10;
+      color: #f4f7fb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(55, 161, 255, 0.16), transparent 25rem),
+        radial-gradient(circle at 86% 74%, rgba(255, 86, 86, 0.13), transparent 24rem),
+        #0b0d10;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+      padding: 18px;
+    }
+
+    .shell {
+      width: min(100%, 1040px);
+      height: min(100vh - 36px, 760px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #090b0f;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(4, 6, 10, 0.72);
+      backdrop-filter: blur(5px);
+      transition: opacity 160ms ease;
+      z-index: 3;
+    }
+
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .menu {
+      width: min(100%, 420px);
+      display: grid;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .brand {
+      margin: 0;
+      font-size: clamp(2rem, 6vw, 4.6rem);
+      line-height: 0.86;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .sub {
+      margin: 0;
+      color: #b7c0cc;
+      font-size: 0.95rem;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 7px;
+      padding: 13px 18px;
+      font: inherit;
+      font-weight: 800;
+      color: #061019;
+      background: #f0d95d;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(240, 217, 93, 0.22);
+    }
+
+    button:focus-visible {
+      outline: 3px solid #74c4ff;
+      outline-offset: 3px;
+    }
+
+    .panel {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 16px;
+      min-height: 0;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(9, 12, 17, 0.86);
+      border-radius: 8px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.04);
+      min-width: 0;
+    }
+
+    .label {
+      display: block;
+      color: #8f9aaa;
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .value {
+      display: block;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+      font-size: 1.1rem;
+      font-weight: 850;
+      overflow-wrap: anywhere;
+    }
+
+    .meter {
+      overflow: hidden;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .meter > span {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #55d17a, #f0d95d, #ff5f57);
+      transform-origin: left center;
+      transform: scaleX(1);
+    }
+
+    .feed {
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      align-content: end;
+      gap: 8px;
+      color: #c7d0dd;
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+
+    .kbd {
+      display: grid;
+      gap: 8px;
+      color: #9ca8b8;
+      font-size: 0.76rem;
+      line-height: 1.55;
+    }
+
+    .kbd span {
+      color: #f4f7fb;
+      font-weight: 800;
+    }
+
+    @media (max-width: 820px) {
+      body {
+        padding: 10px;
+      }
+
+      .shell {
+        height: calc(100vh - 20px);
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 10px;
+      }
+
+      .panel {
+        grid-template-rows: auto;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .feed,
+      .kbd {
+        display: none;
+      }
+    }
+  </style>
 </head>
 <body>
-  <h1>Hello, World!</h1>
-  <p>これはシンプルなHTMLページです。</p>
+  <main class="shell">
+    <section class="stage" aria-label="Bullet Eclipse game stage">
+      <canvas id="game" width="720" height="960"></canvas>
+      <div class="overlay" id="overlay">
+        <div class="menu">
+          <h1 class="brand">Bullet Eclipse</h1>
+          <p class="sub" id="menuText">Ultra hard survival. Graze close, spend bombs late, and keep firing.</p>
+          <button id="startButton" type="button">Start</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel" aria-label="Game status">
+      <div class="stats">
+        <div class="stat">
+          <span class="label">Score</span>
+          <span class="value" id="score">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Best</span>
+          <span class="value" id="best">0</span>
+        </div>
+        <div class="stat">
+          <span class="label">Lives</span>
+          <span class="value" id="lives">3</span>
+        </div>
+        <div class="stat">
+          <span class="label">Bomb</span>
+          <span class="value" id="bombs">2</span>
+        </div>
+      </div>
+      <div class="meter" aria-label="Boss health"><span id="bossMeter"></span></div>
+      <div class="feed" id="feed">
+        <div>Phase 1: Helix Gate</div>
+        <div>Phase 2: Needle Bloom</div>
+        <div>Phase 3: Gravity Lace</div>
+      </div>
+      <div class="kbd">
+        <div><span>Move</span> WASD / Arrow keys / Drag</div>
+        <div><span>Focus</span> Shift</div>
+        <div><span>Bomb</span> Space / Double tap</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("overlay");
+    const startButton = document.getElementById("startButton");
+    const menuText = document.getElementById("menuText");
+    const scoreEl = document.getElementById("score");
+    const bestEl = document.getElementById("best");
+    const livesEl = document.getElementById("lives");
+    const bombsEl = document.getElementById("bombs");
+    const bossMeter = document.getElementById("bossMeter");
+    const feed = document.getElementById("feed");
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const keys = new Set();
+    const bullets = [];
+    const shots = [];
+    const sparks = [];
+    const stars = [];
+    const messages = [];
+    const MAX_BULLETS = 360;
+    const MAX_SPARKS = 110;
+    const rand = (min, max) => min + Math.random() * (max - min);
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const dist2 = (a, b) => {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return dx * dx + dy * dy;
+    };
+
+    let raf = 0;
+    let last = 0;
+    let time = 0;
+    let spawnClock = 0;
+    let shotClock = 0;
+    let hudClock = 0;
+    let bombFlash = 0;
+    let shake = 0;
+    let playing = false;
+    let gameOver = false;
+    let pointerDown = false;
+    let lastTap = 0;
+
+    const storageKey = "bullet-eclipse-best";
+    let best = Number(localStorage.getItem(storageKey) || 0);
+
+    const player = {
+      x: W / 2,
+      y: H - 110,
+      r: 3.8,
+      drawR: 15,
+      lives: 4,
+      bombs: 3,
+      invuln: 0,
+      graze: 0,
+      score: 0,
+      multiplier: 1,
+      hitCooldown: 0
+    };
+
+    const boss = {
+      x: W / 2,
+      y: 135,
+      r: 32,
+      hp: 3200,
+      maxHp: 3200,
+      phase: 1,
+      phaseName: "Helix Gate"
+    };
+
+    for (let i = 0; i < 90; i += 1) {
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        s: rand(0.4, 1.8),
+        v: rand(12, 46),
+        a: rand(0.22, 0.78)
+      });
+    }
+
+    function resetGame() {
+      bullets.length = 0;
+      shots.length = 0;
+      sparks.length = 0;
+      messages.length = 0;
+      Object.assign(player, {
+        x: W / 2,
+        y: H - 110,
+        lives: 4,
+        bombs: 3,
+        invuln: 2.2,
+        graze: 0,
+        score: 0,
+        multiplier: 1,
+        hitCooldown: 0
+      });
+      Object.assign(boss, {
+        x: W / 2,
+        y: 135,
+        hp: 3200,
+        maxHp: 3200,
+        phase: 1,
+        phaseName: "Helix Gate"
+      });
+      time = 0;
+      spawnClock = 0;
+      shotClock = 0;
+      hudClock = 0;
+      bombFlash = 0;
+      shake = 0;
+      gameOver = false;
+      playing = true;
+      overlay.classList.add("hidden");
+      announce("Phase 1: Helix Gate");
+      updateHud();
+    }
+
+    function announce(text) {
+      messages.push({ text, life: 2.2 });
+      const line = document.createElement("div");
+      line.textContent = text;
+      feed.appendChild(line);
+      while (feed.children.length > 8) {
+        feed.removeChild(feed.firstChild);
+      }
+    }
+
+    function addSpark(x, y, color, count = 10, power = 170) {
+      const budget = Math.max(0, MAX_SPARKS - sparks.length);
+      const total = Math.min(count, budget);
+      for (let i = 0; i < total; i += 1) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = rand(power * 0.25, power);
+        sparks.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: rand(1.2, 4.2),
+          color,
+          life: rand(0.22, 0.7),
+          max: 0.7
+        });
+      }
+    }
+
+    function spawnBullet(x, y, angle, speed, r, color, style = "orb", accel = 0) {
+      if (bullets.length >= MAX_BULLETS) return;
+      bullets.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        angle,
+        speed,
+        r,
+        color,
+        style,
+        accel,
+        spin: rand(-2.5, 2.5),
+        age: 0,
+        grazed: false
+      });
+    }
+
+    function fireRing(count, speed, offset, color, radius = 6, style = "orb", x = boss.x, y = boss.y) {
+      for (let i = 0; i < count; i += 1) {
+        const angle = offset + (Math.PI * 2 * i) / count;
+        spawnBullet(x, y, angle, speed, radius, color, style);
+      }
+    }
+
+    function spawnPattern(dt) {
+      spawnClock += dt;
+      const hpRatio = boss.hp / boss.maxHp;
+      const nextPhase = hpRatio < 0.34 ? 3 : hpRatio < 0.67 ? 2 : 1;
+      if (nextPhase !== boss.phase) {
+        boss.phase = nextPhase;
+        boss.phaseName = nextPhase === 2 ? "Needle Bloom" : "Gravity Lace";
+        bullets.length = Math.floor(bullets.length * 0.45);
+        player.bombs += 1;
+        player.invuln = 1.6;
+        announce(`Phase ${boss.phase}: ${boss.phaseName}`);
+        addSpark(boss.x, boss.y, "#f0d95d", 20, 300);
+      }
+
+      const drift = Math.sin(time * 0.8) * 150 + Math.sin(time * 1.7) * 36;
+      boss.x = W / 2 + drift;
+      boss.y = 128 + Math.sin(time * 1.1) * 24;
+
+      if (spawnClock < 0.075) return;
+      const elapsed = spawnClock;
+      spawnClock = 0;
+      const aim = Math.atan2(player.y - boss.y, player.x - boss.x);
+
+      if (boss.phase === 1) {
+        const spin = time * 2.6;
+        fireRing(12, 122 + Math.sin(time * 2) * 18, spin, "#55d17a", 5, "orb");
+        fireRing(12, 92, -spin * 0.82, "#74c4ff", 4, "diamond");
+        if (Math.floor(time * 6) % 5 === 0) {
+          for (let j = -1; j <= 1; j += 1) {
+            spawnBullet(boss.x, boss.y, aim + j * 0.12, 235, 4, "#ff5f57", "needle");
+          }
+        }
+      }
+
+      if (boss.phase === 2) {
+        const flower = 20;
+        for (let i = 0; i < flower; i += 1) {
+          const angle = time * 3.4 + (Math.PI * 2 * i) / flower;
+          const pulse = Math.sin(time * 6 + i) * 26;
+          spawnBullet(boss.x, boss.y, angle, 118 + pulse, 3.7, i % 2 ? "#f0d95d" : "#ff7ac8", "needle", 10);
+        }
+        if (Math.floor(time * 8) % 7 === 0) {
+          fireRing(9, 218, aim, "#ffffff", 3.4, "orb");
+        }
+      }
+
+      if (boss.phase === 3) {
+        const laneCount = 24;
+        fireRing(laneCount, 82 + Math.sin(time * 3) * 15, time * 1.8, "#9d7cff", 5, "orb", boss.x, boss.y);
+        for (let i = -2; i <= 2; i += 1) {
+          spawnBullet(boss.x, boss.y, aim + i * 0.086 + Math.sin(time * 5) * 0.08, 285 + Math.abs(i) * 16, 3.6, "#ff5f57", "needle");
+        }
+        if (Math.random() < 0.24 * elapsed * 12) {
+          const x = rand(40, W - 40);
+          spawnBullet(x, -20, Math.PI / 2 + Math.sin(time + x) * 0.32, rand(180, 255), rand(4, 7), "#55d17a", "diamond");
+        }
+      }
+    }
+
+    function useBomb() {
+      if (!playing || gameOver || player.bombs <= 0 || bombFlash > 0.15) return;
+      player.bombs -= 1;
+      player.invuln = 2.1;
+      bombFlash = 0.7;
+      shake = 10;
+      const cleared = bullets.length;
+      bullets.length = 0;
+      boss.hp = Math.max(0, boss.hp - 360);
+      player.score += cleared * 75 + 1200;
+      addSpark(player.x, player.y, "#74c4ff", 28, 380);
+      announce("Bomb release");
+    }
+
+    function playerHit() {
+      if (player.invuln > 0 || player.hitCooldown > 0) return;
+      player.lives -= 1;
+      player.invuln = 2.4;
+      player.hitCooldown = 0.35;
+      player.multiplier = 1;
+      bullets.length = Math.floor(bullets.length * 0.36);
+      shake = 12;
+      addSpark(player.x, player.y, "#ff5f57", 24, 320);
+      announce(player.lives > 0 ? "Shield break" : "Eclipse complete");
+      if (player.lives <= 0) {
+        endGame(false);
+      }
+    }
+
+    function endGame(won) {
+      playing = false;
+      gameOver = true;
+      best = Math.max(best, Math.floor(player.score));
+      localStorage.setItem(storageKey, String(best));
+      menuText.textContent = won
+        ? `Clear score ${Math.floor(player.score).toLocaleString("ja-JP")}`
+        : `Score ${Math.floor(player.score).toLocaleString("ja-JP")}`;
+      startButton.textContent = "Retry";
+      overlay.classList.remove("hidden");
+      updateHud();
+    }
+
+    function update(dt) {
+      time += dt;
+      spawnPattern(dt);
+
+      const focus = keys.has("Shift");
+      const speed = focus ? 210 : 360;
+      let dx = 0;
+      let dy = 0;
+      if (keys.has("ArrowLeft") || keys.has("a")) dx -= 1;
+      if (keys.has("ArrowRight") || keys.has("d")) dx += 1;
+      if (keys.has("ArrowUp") || keys.has("w")) dy -= 1;
+      if (keys.has("ArrowDown") || keys.has("s")) dy += 1;
+      const len = Math.hypot(dx, dy) || 1;
+      player.x = clamp(player.x + (dx / len) * speed * dt, 24, W - 24);
+      player.y = clamp(player.y + (dy / len) * speed * dt, 56, H - 28);
+
+      shotClock -= dt;
+      if (shotClock <= 0) {
+        shotClock = 0.065;
+        shots.push({ x: player.x - 8, y: player.y - 20, vx: -18, vy: -780, r: 3, life: 1.4 });
+        shots.push({ x: player.x + 8, y: player.y - 20, vx: 18, vy: -780, r: 3, life: 1.4 });
+        shots.push({ x: player.x, y: player.y - 26, vx: 0, vy: -840, r: 2.5, life: 1.4 });
+      }
+
+      for (let i = bullets.length - 1; i >= 0; i -= 1) {
+        const b = bullets[i];
+        b.age += dt;
+        if (b.accel) {
+          const speed = Math.hypot(b.vx, b.vy) + b.accel * dt;
+          b.vx = Math.cos(b.angle + Math.sin(b.age * 2) * 0.18) * speed;
+          b.vy = Math.sin(b.angle + Math.sin(b.age * 2) * 0.18) * speed;
+        }
+        if (boss.phase === 3 && b.style === "orb") {
+          const pull = Math.atan2(player.y - b.y, player.x - b.x);
+          b.vx += Math.cos(pull) * 26 * dt;
+          b.vy += Math.sin(pull) * 26 * dt;
+        }
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        if (b.x < -70 || b.x > W + 70 || b.y < -90 || b.y > H + 90) {
+          bullets.splice(i, 1);
+          continue;
+        }
+
+        const hitR = player.r + b.r * 0.72;
+        if (dist2(player, b) < hitR * hitR) {
+          bullets.splice(i, 1);
+          playerHit();
+          continue;
+        }
+        const grazeR = 27 + b.r;
+        if (!b.grazed && dist2(player, b) < grazeR * grazeR) {
+          b.grazed = true;
+          player.graze += 1;
+          player.multiplier = clamp(player.multiplier + 0.02, 1, 7);
+          player.score += 42 * player.multiplier;
+          addSpark(player.x, player.y, "#f0d95d", 2, 95);
+        }
+      }
+
+      for (let i = shots.length - 1; i >= 0; i -= 1) {
+        const s = shots[i];
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.life -= dt;
+        if (s.life <= 0 || s.y < -40) {
+          shots.splice(i, 1);
+          continue;
+        }
+        if (Math.hypot(s.x - boss.x, s.y - boss.y) < boss.r + s.r) {
+          shots.splice(i, 1);
+          boss.hp = Math.max(0, boss.hp - 10.5 * player.multiplier);
+          player.score += 9 * player.multiplier;
+          if (Math.random() < 0.08) addSpark(s.x, s.y, "#f4f7fb", 1, 75);
+        }
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i -= 1) {
+        const p = sparks[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.life -= dt;
+        if (p.life <= 0) sparks.splice(i, 1);
+      }
+
+      for (let i = messages.length - 1; i >= 0; i -= 1) {
+        messages[i].life -= dt;
+        if (messages[i].life <= 0) messages.splice(i, 1);
+      }
+
+      player.invuln = Math.max(0, player.invuln - dt);
+      player.hitCooldown = Math.max(0, player.hitCooldown - dt);
+      bombFlash = Math.max(0, bombFlash - dt);
+      shake = Math.max(0, shake - dt * 24);
+      player.score += dt * 16 * player.multiplier;
+      if (boss.hp <= 0) endGame(true);
+      hudClock += dt;
+      if (hudClock >= 0.1) {
+        hudClock = 0;
+        updateHud();
+      }
+    }
+
+    function updateHud() {
+      best = Math.max(best, Math.floor(player.score));
+      scoreEl.textContent = Math.floor(player.score).toLocaleString("ja-JP");
+      bestEl.textContent = best.toLocaleString("ja-JP");
+      livesEl.textContent = player.lives;
+      bombsEl.textContent = player.bombs;
+      bossMeter.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
+    }
+
+    function drawBackground(dt) {
+      ctx.fillStyle = "#090b0f";
+      ctx.fillRect(0, 0, W, H);
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      for (const star of stars) {
+        star.y += star.v * dt;
+        if (star.y > H) {
+          star.y = 0;
+          star.x = Math.random() * W;
+        }
+        ctx.fillStyle = `rgba(244, 247, 251, ${star.a})`;
+        ctx.fillRect(star.x, star.y, star.s, star.s * 2.2);
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(116, 196, 255, 0.08)";
+      ctx.lineWidth = 1;
+      for (let y = (time * 42) % 80; y < H; y += 80) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBoss() {
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+      ctx.rotate(time * 0.8);
+      const pulse = 1 + Math.sin(time * 8) * 0.06;
+      ctx.scale(pulse, pulse);
+      ctx.fillStyle = "rgba(255, 95, 87, 0.18)";
+      ctx.beginPath();
+      ctx.arc(0, 0, 68, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#ff5f57";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i += 1) {
+        const a = (Math.PI * 2 * i) / 8;
+        const r = i % 2 ? 25 : 44;
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fillStyle = "#f0d95d";
+      ctx.beginPath();
+      ctx.arc(0, 0, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPlayer() {
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      if (player.invuln > 0 && Math.floor(time * 18) % 2 === 0) ctx.globalAlpha = 0.45;
+      ctx.fillStyle = "#74c4ff";
+      ctx.beginPath();
+      ctx.moveTo(0, -22);
+      ctx.lineTo(17, 16);
+      ctx.lineTo(0, 8);
+      ctx.lineTo(-17, 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "#f4f7fb";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#ff5f57";
+      ctx.beginPath();
+      ctx.arc(0, 0, player.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBullets() {
+      for (const b of bullets) {
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(b.angle + b.age * b.spin);
+        ctx.fillStyle = b.color;
+        if (b.style === "needle") {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, b.r * 0.7, b.r * 2.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (b.style === "diamond") {
+          ctx.beginPath();
+          ctx.moveTo(0, -b.r * 1.7);
+          ctx.lineTo(b.r * 1.35, 0);
+          ctx.lineTo(0, b.r * 1.7);
+          ctx.lineTo(-b.r * 1.35, 0);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "rgba(255,255,255,0.72)";
+          ctx.beginPath();
+          ctx.arc(-b.r * 0.22, -b.r * 0.24, b.r * 0.32, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawShots() {
+      ctx.save();
+      ctx.fillStyle = "#f4f7fb";
+      for (const s of shots) {
+        ctx.beginPath();
+        ctx.roundRect(s.x - 2, s.y - 12, 4, 20, 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawSparks() {
+      for (const p of sparks) {
+        const alpha = clamp(p.life / p.max, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function drawUi() {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "800 18px Inter, system-ui, sans-serif";
+      for (const message of messages) {
+        const alpha = clamp(message.life, 0, 1);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#f4f7fb";
+        ctx.fillText(message.text, W / 2, 250 + (1 - alpha) * -20);
+      }
+      ctx.restore();
+
+      if (bombFlash > 0) {
+        ctx.save();
+        ctx.globalAlpha = bombFlash * 0.52;
+        ctx.fillStyle = "#74c4ff";
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+    }
+
+    function draw(dt) {
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate(rand(-shake, shake), rand(-shake, shake));
+      }
+      drawBackground(dt);
+      drawBoss();
+      drawShots();
+      drawBullets();
+      drawPlayer();
+      drawSparks();
+      drawUi();
+      ctx.restore();
+    }
+
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000 || 0);
+      last = now;
+      if (playing) update(dt);
+      draw(dt);
+      raf = requestAnimationFrame(loop);
+    }
+
+    function pointerToGame(event) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * W,
+        y: ((event.clientY - rect.top) / rect.height) * H
+      };
+    }
+
+    window.addEventListener("keydown", (event) => {
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      keys.add(key);
+      if (key === " " || key === "Spacebar") {
+        event.preventDefault();
+        useBomb();
+      }
+      if ((key === "Enter" || key === "r") && !playing) {
+        resetGame();
+      }
+    });
+
+    window.addEventListener("keyup", (event) => {
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      keys.delete(key);
+    });
+
+    canvas.addEventListener("pointerdown", (event) => {
+      pointerDown = true;
+      canvas.setPointerCapture(event.pointerId);
+      const now = performance.now();
+      if (now - lastTap < 280) useBomb();
+      lastTap = now;
+      const p = pointerToGame(event);
+      player.x = clamp(p.x, 24, W - 24);
+      player.y = clamp(p.y, 56, H - 28);
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (!pointerDown || !playing) return;
+      const p = pointerToGame(event);
+      player.x = clamp(p.x, 24, W - 24);
+      player.y = clamp(p.y, 56, H - 28);
+    });
+
+    canvas.addEventListener("pointerup", () => {
+      pointerDown = false;
+    });
+
+    startButton.addEventListener("click", resetGame);
+    bestEl.textContent = best.toLocaleString("ja-JP");
+    updateHud();
+    raf = requestAnimationFrame((now) => {
+      last = now;
+      loop(now);
+    });
+  </script>
 </body>
 </html>
