@@ -62,6 +62,50 @@
       cursor: crosshair;
     }
 
+    .boss-hud {
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      right: 14px;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 7px;
+      background: rgba(4, 6, 10, 0.72);
+      pointer-events: none;
+    }
+
+    .boss-name,
+    .boss-hp-text {
+      color: #f4f7fb;
+      font-size: 0.74rem;
+      font-weight: 850;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .boss-bar {
+      height: 9px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .boss-bar > span {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #55d17a, #f0d95d, #ff5f57);
+      transform-origin: left center;
+      transform: scaleX(1);
+    }
+
     .overlay {
       position: absolute;
       inset: 0;
@@ -100,6 +144,26 @@
       font-size: 0.95rem;
     }
 
+    .setup {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+    }
+
+    .setup-label {
+      color: #9ca8b8;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .life-options {
+      display: grid;
+      width: min(100%, 260px);
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+
     button {
       appearance: none;
       border: 0;
@@ -116,6 +180,22 @@
     button:focus-visible {
       outline: 3px solid #74c4ff;
       outline-offset: 3px;
+    }
+
+    .life-options button {
+      min-width: 0;
+      aspect-ratio: 1;
+      padding: 0;
+      color: #f4f7fb;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .life-options button[aria-pressed="true"] {
+      color: #061019;
+      background: #f0d95d;
+      border-color: #f0d95d;
     }
 
     .panel {
@@ -235,10 +315,25 @@
   <main class="shell">
     <section class="stage" aria-label="Bullet Eclipse game stage">
       <canvas id="game" width="720" height="960"></canvas>
+      <div class="boss-hud" aria-label="Boss health">
+        <span class="boss-name">Boss</span>
+        <div class="boss-bar"><span id="bossTopMeter"></span></div>
+        <span class="boss-hp-text" id="bossHpText">100%</span>
+      </div>
       <div class="overlay" id="overlay">
         <div class="menu">
           <h1 class="brand">Bullet Eclipse</h1>
-          <p class="sub" id="menuText">Ultra hard survival. Graze close, spend bombs late, and keep firing.</p>
+          <p class="sub" id="menuText">Ultra hard survival. Graze close, clear nearby bullets, and keep firing.</p>
+          <div class="setup" aria-label="Starting lives">
+            <span class="setup-label">Starting Lives</span>
+            <div class="life-options" id="lifeOptions">
+              <button type="button" data-lives="1" aria-pressed="false">1</button>
+              <button type="button" data-lives="2" aria-pressed="false">2</button>
+              <button type="button" data-lives="3" aria-pressed="false">3</button>
+              <button type="button" data-lives="4" aria-pressed="true">4</button>
+              <button type="button" data-lives="5" aria-pressed="false">5</button>
+            </div>
+          </div>
           <button id="startButton" type="button">Start</button>
         </div>
       </div>
@@ -256,10 +351,10 @@
         </div>
         <div class="stat">
           <span class="label">Lives</span>
-          <span class="value" id="lives">3</span>
+          <span class="value" id="lives">4</span>
         </div>
         <div class="stat">
-          <span class="label">Bomb</span>
+          <span class="label">Special</span>
           <span class="value" id="bombs">2</span>
         </div>
       </div>
@@ -272,7 +367,7 @@
       <div class="kbd">
         <div><span>Move</span> WASD / Arrow keys / Drag</div>
         <div><span>Focus</span> Shift</div>
-        <div><span>Bomb</span> Space / Double tap</div>
+        <div><span>Special</span> Q / Double tap</div>
         <div><span>Restart</span> P anytime</div>
       </div>
     </aside>
@@ -283,12 +378,15 @@
     const ctx = canvas.getContext("2d");
     const overlay = document.getElementById("overlay");
     const startButton = document.getElementById("startButton");
+    const lifeOptions = document.getElementById("lifeOptions");
     const menuText = document.getElementById("menuText");
     const scoreEl = document.getElementById("score");
     const bestEl = document.getElementById("best");
     const livesEl = document.getElementById("lives");
     const bombsEl = document.getElementById("bombs");
     const bossMeter = document.getElementById("bossMeter");
+    const bossTopMeter = document.getElementById("bossTopMeter");
+    const bossHpText = document.getElementById("bossHpText");
     const feed = document.getElementById("feed");
 
     const W = canvas.width;
@@ -301,6 +399,8 @@
     const messages = [];
     const MAX_BULLETS = 360;
     const MAX_SPARKS = 110;
+    const MAX_SPECIALS = 2;
+    const SPECIAL_RADIUS = 170;
     const rand = (min, max) => min + Math.random() * (max - min);
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
     const dist2 = (a, b) => {
@@ -321,6 +421,7 @@
     let gameOver = false;
     let pointerDown = false;
     let lastTap = 0;
+    let selectedLives = 4;
 
     const storageKey = "bullet-eclipse-best";
     let best = Number(localStorage.getItem(storageKey) || 0);
@@ -331,7 +432,7 @@
       r: 3.8,
       drawR: 15,
       lives: 4,
-      bombs: 3,
+      bombs: MAX_SPECIALS,
       invuln: 0,
       graze: 0,
       score: 0,
@@ -359,6 +460,17 @@
       });
     }
 
+    function setStartingLives(lives) {
+      selectedLives = clamp(lives, 1, 5);
+      for (const button of lifeOptions.querySelectorAll("button")) {
+        button.setAttribute("aria-pressed", Number(button.dataset.lives) === selectedLives ? "true" : "false");
+      }
+      if (!playing) {
+        player.lives = selectedLives;
+        updateHud();
+      }
+    }
+
     function resetGame() {
       bullets.length = 0;
       shots.length = 0;
@@ -367,8 +479,8 @@
       Object.assign(player, {
         x: W / 2,
         y: H - 110,
-        lives: 4,
-        bombs: 3,
+        lives: selectedLives,
+        bombs: MAX_SPECIALS,
         invuln: 2.2,
         graze: 0,
         score: 0,
@@ -459,7 +571,7 @@
         boss.phase = nextPhase;
         boss.phaseName = nextPhase === 2 ? "Needle Bloom" : "Gravity Lace";
         bullets.length = Math.floor(bullets.length * 0.45);
-        player.bombs += 1;
+        player.bombs = Math.min(MAX_SPECIALS, player.bombs + 1);
         player.invuln = 1.6;
         announce(`Phase ${boss.phase}: ${boss.phaseName}`);
         addSpark(boss.x, boss.y, "#f0d95d", 20, 300);
@@ -515,13 +627,20 @@
       player.bombs -= 1;
       player.invuln = 2.1;
       bombFlash = 0.7;
-      shake = 10;
-      const cleared = bullets.length;
-      bullets.length = 0;
-      boss.hp = Math.max(0, boss.hp - 360);
-      player.score += cleared * 75 + 1200;
-      addSpark(player.x, player.y, "#74c4ff", 28, 380);
-      announce("Bomb release");
+      shake = 5;
+      let cleared = 0;
+      const clearRadius = SPECIAL_RADIUS + player.drawR;
+      for (let i = bullets.length - 1; i >= 0; i -= 1) {
+        const bullet = bullets[i];
+        const radius = clearRadius + bullet.r;
+        if (dist2(player, bullet) <= radius * radius) {
+          bullets.splice(i, 1);
+          cleared += 1;
+        }
+      }
+      player.score += cleared * 90 + 500;
+      addSpark(player.x, player.y, "#74c4ff", 24, 320);
+      announce("Special release");
     }
 
     function playerHit() {
@@ -560,7 +679,7 @@
       player.x = W / 2;
       player.y = H - 110;
       player.lives = 2;
-      player.bombs = Math.max(player.bombs, 1);
+      player.bombs = Math.min(MAX_SPECIALS, Math.max(player.bombs, 1));
       player.invuln = 2.4;
       player.hitCooldown = 0;
       player.multiplier = 1;
@@ -687,7 +806,10 @@
       bestEl.textContent = best.toLocaleString("ja-JP");
       livesEl.textContent = player.lives;
       bombsEl.textContent = player.bombs;
-      bossMeter.style.transform = `scaleX(${clamp(boss.hp / boss.maxHp, 0, 1)})`;
+      const bossRatio = clamp(boss.hp / boss.maxHp, 0, 1);
+      bossMeter.style.transform = `scaleX(${bossRatio})`;
+      bossTopMeter.style.transform = `scaleX(${bossRatio})`;
+      bossHpText.textContent = `${Math.ceil(bossRatio * 100)}%`;
     }
 
     function drawBackground(dt) {
@@ -840,9 +962,17 @@
 
       if (bombFlash > 0) {
         ctx.save();
-        ctx.globalAlpha = bombFlash * 0.52;
+        ctx.globalAlpha = bombFlash * 0.56;
+        ctx.strokeStyle = "#74c4ff";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, SPECIAL_RADIUS, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = bombFlash * 0.16;
         ctx.fillStyle = "#74c4ff";
-        ctx.fillRect(0, 0, W, H);
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, SPECIAL_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
       }
     }
@@ -881,7 +1011,7 @@
     window.addEventListener("keydown", (event) => {
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       keys.add(key);
-      if (key === " " || key === "Spacebar") {
+      if (key === "q") {
         event.preventDefault();
         useBomb();
       }
@@ -924,7 +1054,14 @@
       pointerDown = false;
     });
 
+    lifeOptions.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-lives]");
+      if (!button) return;
+      setStartingLives(Number(button.dataset.lives));
+    });
+
     startButton.addEventListener("click", resetGame);
+    setStartingLives(selectedLives);
     bestEl.textContent = best.toLocaleString("ja-JP");
     updateHud();
     raf = requestAnimationFrame((now) => {
