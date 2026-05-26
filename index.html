@@ -273,6 +273,7 @@
         <div><span>Move</span> WASD / Arrow keys / Drag</div>
         <div><span>Focus</span> Shift</div>
         <div><span>Bomb</span> Space / Double tap</div>
+        <div><span>Restart</span> P anytime</div>
       </div>
     </aside>
   </main>
@@ -545,9 +546,33 @@
       localStorage.setItem(storageKey, String(best));
       menuText.textContent = won
         ? `Clear score ${Math.floor(player.score).toLocaleString("ja-JP")}`
-        : `Score ${Math.floor(player.score).toLocaleString("ja-JP")}`;
+        : `Score ${Math.floor(player.score).toLocaleString("ja-JP")} - Press P to continue`;
       startButton.textContent = "Retry";
       overlay.classList.remove("hidden");
+      updateHud();
+    }
+
+    function continueGame() {
+      if (!gameOver || playing || boss.hp <= 0) return;
+      bullets.length = 0;
+      shots.length = 0;
+      sparks.length = 0;
+      player.x = W / 2;
+      player.y = H - 110;
+      player.lives = 2;
+      player.bombs = Math.max(player.bombs, 1);
+      player.invuln = 2.4;
+      player.hitCooldown = 0;
+      player.multiplier = 1;
+      spawnClock = 0;
+      shotClock = 0;
+      hudClock = 0;
+      bombFlash = 0;
+      shake = 0;
+      gameOver = false;
+      playing = true;
+      overlay.classList.add("hidden");
+      announce("Continue");
       updateHud();
     }
 
@@ -556,7 +581,7 @@
       spawnPattern(dt);
 
       const focus = keys.has("Shift");
-      const speed = focus ? 210 : 360;
+      const speed = focus ? 170 : 300;
       let dx = 0;
       let dy = 0;
       if (keys.has("ArrowLeft") || keys.has("a")) dx -= 1;
@@ -862,6 +887,13 @@
       }
       if ((key === "Enter" || key === "r") && !playing) {
         resetGame();
+      }
+      if (key === "p") {
+        if (gameOver && boss.hp > 0) {
+          continueGame();
+        } else {
+          resetGame();
+        }
       }
     });
 
