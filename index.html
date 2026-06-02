@@ -331,10 +331,10 @@
     const shootingPhases = [
       { name: "単発狙撃", duration: 18, spawn: 1.25, speed: 0.72 },
       { name: "ゆるい三連", duration: 18, spawn: 1.1, speed: 0.82 },
-      { name: "扇状拡散", duration: 20, spawn: 0.92, speed: 0.94 },
-      { name: "高速直線", duration: 20, spawn: 0.78, speed: 1.02 },
-      { name: "交差包囲", duration: 22, spawn: 0.78, speed: 1.1 },
-      { name: "最終波状", duration: 24, spawn: 0.66, speed: 1.18 }
+      { name: "扇状拡散", duration: 20, spawn: 1.18, speed: 0.82 },
+      { name: "高速直線", duration: 20, spawn: 1.28, speed: 0.82 },
+      { name: "交差包囲", duration: 22, spawn: 1.22, speed: 0.86 },
+      { name: "最終波状", duration: 24, spawn: 1.08, speed: 0.92 }
     ];
 
     const action = {
@@ -528,8 +528,8 @@
         phase,
         x: rand(40, W - 40),
         y: -30,
-        vx: rand(-34, 34) * loopBoost,
-        vy: rand(54, 88) * base.speed * loopBoost,
+        vx: rand(-28, 28) * loopBoost,
+        vy: rand(46, 76) * base.speed * loopBoost,
         r: rand(18, 26),
         hp: 26 + phase * 4 + (s.loop - 1) * 8,
         fire: rand(0.35, 0.82),
@@ -586,34 +586,34 @@
       }
 
       if (enemy.phase === 3) {
-        for (let j = -2; j <= 2; j += 1) {
-          addShootingBullet(enemy.x, enemy.y, aim + j * 0.18, 165 * loopBoost, 6, "#ffcf54");
+        for (let j = -1; j <= 1; j += 1) {
+          addShootingBullet(enemy.x, enemy.y, aim + j * 0.2, 135 * loopBoost, 6, "#ffcf54");
         }
         return;
       }
 
       if (enemy.phase === 4) {
         for (let j = -1; j <= 1; j += 1) {
-          addShootingBullet(enemy.x + j * 18, enemy.y, Math.PI / 2 + j * 0.06, 210 * loopBoost, 5.5, "#ff6b5f");
+          addShootingBullet(enemy.x + j * 18, enemy.y, Math.PI / 2 + j * 0.06, 145 * loopBoost, 5.5, "#ff6b5f");
         }
-        addShootingBullet(enemy.x, enemy.y, aim, 195 * loopBoost, 5.5, "#77bfff");
+        addShootingBullet(enemy.x, enemy.y, aim, 135 * loopBoost, 5.5, "#77bfff");
         return;
       }
 
       if (enemy.phase === 5) {
-        for (let j = -2; j <= 2; j += 1) {
-          addShootingBullet(enemy.x, enemy.y, aim + j * 0.2, 185 * loopBoost, 6, "#ffcf54");
-          addShootingBullet(enemy.x, enemy.y, Math.PI - aim + j * 0.16, 145 * loopBoost, 5, "#8fd3ff");
+        for (let j = -1; j <= 1; j += 1) {
+          addShootingBullet(enemy.x, enemy.y, aim + j * 0.22, 135 * loopBoost, 6, "#ffcf54");
+          addShootingBullet(enemy.x, enemy.y, Math.PI - aim + j * 0.18, 105 * loopBoost, 5, "#8fd3ff");
         }
         return;
       }
 
-      for (let j = -3; j <= 3; j += 1) {
-        addShootingBullet(enemy.x, enemy.y, aim + j * 0.17, 205 * loopBoost, 6.5, "#ff6b5f");
+      for (let j = -2; j <= 2; j += 1) {
+        addShootingBullet(enemy.x, enemy.y, aim + j * 0.19, 145 * loopBoost, 6.5, "#ff6b5f");
       }
-      for (let j = 0; j < 10; j += 1) {
-        const angle = (Math.PI * 2 * j) / 10 + s.time * 0.45;
-        addShootingBullet(enemy.x, enemy.y, angle, 128 * loopBoost, 5, "#77bfff");
+      for (let j = 0; j < 6; j += 1) {
+        const angle = (Math.PI * 2 * j) / 6 + s.time * 0.35;
+        addShootingBullet(enemy.x, enemy.y, angle, 92 * loopBoost, 5, "#77bfff");
       }
     }
 
