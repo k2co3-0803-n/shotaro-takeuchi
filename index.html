@@ -303,6 +303,8 @@
     let selectedMode = "";
     let playing = false;
     let pointerDown = false;
+    let godMode = false;
+    let secretFlash = 0;
 
     const best = {
       shooting: Number(localStorage.getItem("best-shooting") || 0),
@@ -327,12 +329,12 @@
     };
 
     const shootingPhases = [
-      { name: "斜行編隊", duration: 18, spawn: 0.72, speed: 1 },
-      { name: "三連狙撃", duration: 18, spawn: 0.62, speed: 1.08 },
-      { name: "拡散弾幕", duration: 20, spawn: 0.7, speed: 1.12 },
-      { name: "高速突入", duration: 20, spawn: 0.52, speed: 1.22 },
-      { name: "交差包囲", duration: 22, spawn: 0.58, speed: 1.28 },
-      { name: "最終波状", duration: 24, spawn: 0.46, speed: 1.38 }
+      { name: "単発狙撃", duration: 18, spawn: 1.25, speed: 0.72 },
+      { name: "ゆるい三連", duration: 18, spawn: 1.1, speed: 0.82 },
+      { name: "扇状拡散", duration: 20, spawn: 0.92, speed: 0.94 },
+      { name: "高速直線", duration: 20, spawn: 0.78, speed: 1.02 },
+      { name: "交差包囲", duration: 22, spawn: 0.78, speed: 1.1 },
+      { name: "最終波状", duration: 24, spawn: 0.66, speed: 1.18 }
     ];
 
     const action = {
@@ -390,10 +392,20 @@
       if (selectedMode === "action") resetAction();
     }
 
+    function activateGodMode() {
+      godMode = true;
+      secretFlash = 2.4;
+      menuTitle.textContent = "無敵モード解放";
+      menuText.textContent = "隠しコマンド成功。ダメージを受けない状態になりました。";
+      addSpark(shooting.sparks, W / 2, H / 2, "#ffcf54", 42);
+      addSpark(action.dust, W / 2, H / 2, "#ffcf54", 42);
+      updateHud();
+    }
+
     function resetShooting() {
       activeMode = "shooting";
       playing = true;
-      Object.assign(shooting.player, { x: W / 2, y: H - 72, r: 12, lives: 3, bomb: 2, invuln: 1.4 });
+      Object.assign(shooting.player, { x: W / 2, y: H - 72, r: 12, lives: 5, bomb: 2, invuln: 1.8 });
       shooting.enemies.length = 0;
       shooting.bullets.length = 0;
       shooting.shots.length = 0;
@@ -510,14 +522,14 @@
     function spawnShootingEnemy() {
       const s = shooting;
       const phase = s.phase;
-      const loopBoost = 1 + (s.loop - 1) * 0.12;
+      const loopBoost = 1 + (s.loop - 1) * 0.08;
       const base = getShootingPhase();
       s.enemies.push({
         phase,
         x: rand(40, W - 40),
         y: -30,
-        vx: rand(-44, 44) * loopBoost,
-        vy: rand(65, 105) * base.speed * loopBoost,
+        vx: rand(-34, 34) * loopBoost,
+        vy: rand(54, 88) * base.speed * loopBoost,
         r: rand(18, 26),
         hp: 26 + phase * 4 + (s.loop - 1) * 8,
         fire: rand(0.35, 0.82),
@@ -548,11 +560,68 @@
       }
     }
 
+    function addShootingBullet(x, y, angle, speed, r, color = "#77bfff") {
+      shooting.bullets.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r,
+        color
+      });
+    }
+
+    function fireShootingPattern(enemy, aim, loopBoost) {
+      const s = shooting;
+      if (enemy.phase === 1) {
+        addShootingBullet(enemy.x, enemy.y, aim, 125 * loopBoost, 5, "#8fd3ff");
+        return;
+      }
+
+      if (enemy.phase === 2) {
+        for (let j = -1; j <= 1; j += 1) {
+          addShootingBullet(enemy.x, enemy.y, aim + j * 0.1, 140 * loopBoost, 5.5, "#8fd3ff");
+        }
+        return;
+      }
+
+      if (enemy.phase === 3) {
+        for (let j = -2; j <= 2; j += 1) {
+          addShootingBullet(enemy.x, enemy.y, aim + j * 0.18, 165 * loopBoost, 6, "#ffcf54");
+        }
+        return;
+      }
+
+      if (enemy.phase === 4) {
+        for (let j = -1; j <= 1; j += 1) {
+          addShootingBullet(enemy.x + j * 18, enemy.y, Math.PI / 2 + j * 0.06, 210 * loopBoost, 5.5, "#ff6b5f");
+        }
+        addShootingBullet(enemy.x, enemy.y, aim, 195 * loopBoost, 5.5, "#77bfff");
+        return;
+      }
+
+      if (enemy.phase === 5) {
+        for (let j = -2; j <= 2; j += 1) {
+          addShootingBullet(enemy.x, enemy.y, aim + j * 0.2, 185 * loopBoost, 6, "#ffcf54");
+          addShootingBullet(enemy.x, enemy.y, Math.PI - aim + j * 0.16, 145 * loopBoost, 5, "#8fd3ff");
+        }
+        return;
+      }
+
+      for (let j = -3; j <= 3; j += 1) {
+        addShootingBullet(enemy.x, enemy.y, aim + j * 0.17, 205 * loopBoost, 6.5, "#ff6b5f");
+      }
+      for (let j = 0; j < 10; j += 1) {
+        const angle = (Math.PI * 2 * j) / 10 + s.time * 0.45;
+        addShootingBullet(enemy.x, enemy.y, angle, 128 * loopBoost, 5, "#77bfff");
+      }
+    }
+
     function updateShooting(dt) {
       const s = shooting;
       const p = s.player;
       const phaseInfo = getShootingPhase();
-      const loopBoost = 1 + (s.loop - 1) * 0.12;
+      const loopBoost = 1 + (s.loop - 1) * 0.08;
       s.time += dt;
       s.phaseTime += dt;
       s.score += dt * (12 + s.phase * 2 + s.loop * 3);
@@ -576,7 +645,7 @@
       }
 
       s.spawn += dt;
-      if (s.spawn >= Math.max(0.24, phaseInfo.spawn - (s.loop - 1) * 0.04)) {
+      if (s.spawn >= Math.max(0.38, phaseInfo.spawn - (s.loop - 1) * 0.025)) {
         s.spawn = 0;
         spawnShootingEnemy();
       }
@@ -590,21 +659,9 @@
         if (e.x < 28 || e.x > W - 28) e.vx *= -1;
         e.fire -= dt;
         if (e.fire <= 0) {
-          e.fire = rand(0.42, 0.9) / loopBoost;
+          e.fire = rand(e.phase <= 2 ? 1.0 : 0.68, e.phase <= 2 ? 1.5 : 1.15) / loopBoost;
           const aim = Math.atan2(p.y - e.y, p.x - e.x);
-          const spread = e.phase >= 5 ? 5 : e.phase >= 3 ? 4 : 3;
-          const step = e.phase === 2 ? 0.09 : e.phase >= 5 ? 0.2 : 0.15;
-          for (let j = 0; j < spread; j += 1) {
-            const offset = (j - (spread - 1) / 2) * step;
-            const speed = (190 + e.phase * 18) * loopBoost;
-            s.bullets.push({ x: e.x, y: e.y, vx: Math.cos(aim + offset) * speed, vy: Math.sin(aim + offset) * speed, r: e.phase >= 6 ? 7 : 6 });
-          }
-          if (e.phase === 6) {
-            for (let j = 0; j < 8; j += 1) {
-              const angle = (Math.PI * 2 * j) / 8 + s.time * 0.35;
-              s.bullets.push({ x: e.x, y: e.y, vx: Math.cos(angle) * 145 * loopBoost, vy: Math.sin(angle) * 145 * loopBoost, r: 5 });
-            }
-          }
+          fireShootingPattern(e, aim, loopBoost);
         }
         if (e.y > H + 40) s.enemies.splice(i, 1);
       }
@@ -639,10 +696,10 @@
           s.bullets.splice(i, 1);
           continue;
         }
-        if (p.invuln <= 0 && Math.hypot(b.x - p.x, b.y - p.y) < b.r + p.r) {
+        if (!godMode && p.invuln <= 0 && Math.hypot(b.x - p.x, b.y - p.y) < b.r + p.r) {
           s.bullets.splice(i, 1);
           p.lives -= 1;
-          p.invuln = 1.4;
+          p.invuln = 1.8;
           s.shake = 12;
           addSpark(s.sparks, p.x, p.y, "#ff6b5f", 18);
           if (p.lives <= 0) endGame();
@@ -688,6 +745,11 @@
       const a = action;
       const p = a.player;
       if (p.invuln > 0) return;
+      if (godMode) {
+        obstacle.x = -100;
+        addSpark(a.dust, p.x + p.w * 0.5, p.y + p.h * 0.5, "#ffcf54", 12);
+        return;
+      }
       if (p.guarding && p.guard > 0 && obstacle.type !== "spike") {
         p.guard = Math.max(0, p.guard - (obstacle.type === "barrier" ? 34 : 24));
         p.invuln = 0.38;
@@ -774,8 +836,8 @@
         bestEl.textContent = Math.floor(best.shooting).toLocaleString("ja-JP");
         statALabel.textContent = "残機";
         statA.textContent = shooting.player.lives;
-        statBLabel.textContent = "周回";
-        statB.textContent = `${shooting.loop}周 P${shooting.phase} / S${shooting.player.bomb}`;
+        statBLabel.textContent = godMode ? "状態" : "周回";
+        statB.textContent = godMode ? "無敵" : `${shooting.loop}周 ${getShootingPhase().name} / S${shooting.player.bomb}`;
         return;
       }
       if (activeMode === "action") {
@@ -784,8 +846,8 @@
         bestEl.textContent = `${Math.floor(best.action).toLocaleString("ja-JP")}m`;
         statALabel.textContent = "ミス";
         statA.textContent = "1回で終了";
-        statBLabel.textContent = "防御";
-        statB.textContent = `${Math.ceil(action.player.guard)}%`;
+        statBLabel.textContent = godMode ? "状態" : "防御";
+        statB.textContent = godMode ? "無敵" : `${Math.ceil(action.player.guard)}%`;
         return;
       }
       modeLabel.textContent = "選択中";
@@ -794,7 +856,7 @@
       statALabel.textContent = "体力";
       statA.textContent = "-";
       statBLabel.textContent = "状態";
-      statB.textContent = "-";
+      statB.textContent = godMode ? "無敵" : "-";
     }
 
     function drawShooting(dt) {
@@ -829,7 +891,7 @@
       }
 
       for (const b of s.bullets) {
-        ctx.fillStyle = "#77bfff";
+        ctx.fillStyle = b.color || "#77bfff";
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         ctx.fill();
@@ -984,6 +1046,22 @@
         ctx.font = '800 22px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
         ctx.fillText("ゲームを選択してください", 36, 52);
       }
+      if (secretFlash > 0) {
+        const alpha = clamp(secretFlash / 2.4, 0, 1);
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.32;
+        ctx.fillStyle = "#ffcf54";
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = alpha;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#101217";
+        ctx.font = '900 44px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
+        ctx.fillText("無敵モード", W / 2, H / 2 - 18);
+        ctx.font = '800 20px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
+        ctx.fillText("発動", W / 2, H / 2 + 30);
+        ctx.restore();
+      }
       ctx.restore();
     }
 
@@ -992,6 +1070,7 @@
       last = now;
       if (playing && activeMode === "shooting") updateShooting(dt);
       if (playing && activeMode === "action") updateAction(dt);
+      secretFlash = Math.max(0, secretFlash - dt);
       draw(dt);
       raf = requestAnimationFrame(loop);
     }
@@ -1007,6 +1086,11 @@
     window.addEventListener("keydown", (event) => {
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       keys.add(key);
+      if (!playing && (key === "x" || event.code === "KeyX")) {
+        event.preventDefault();
+        activateGodMode();
+        return;
+      }
       if (key === "Escape") {
         setMenuSelect();
         return;
