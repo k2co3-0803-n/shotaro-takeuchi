@@ -95,10 +95,12 @@
       position: absolute;
       inset: 0;
       display: grid;
-      place-items: center;
-      padding: 24px;
+      align-items: start;
+      justify-items: center;
+      padding: clamp(12px, 4vh, 30px) 24px 18px;
       background: rgba(7, 10, 15, 0.75);
       backdrop-filter: blur(5px);
+      overflow-y: auto;
       transition: opacity 160ms ease;
       z-index: 2;
     }
@@ -117,7 +119,7 @@
 
     h1 {
       margin: 0;
-      font-size: clamp(2rem, 7vw, 4.7rem);
+      font-size: clamp(1.8rem, 6vw, 3.8rem);
       line-height: 0.95;
       letter-spacing: 0;
     }
@@ -131,6 +133,12 @@
     .mode-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -169,6 +177,34 @@
       line-height: 1.45;
     }
 
+    .phase-button {
+      min-height: 92px;
+    }
+
+    .phase-button strong {
+      font-size: 0.92rem;
+    }
+
+    .phase-button small {
+      font-size: 0.72rem;
+    }
+
+    .pause-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .pause-actions button {
+      min-height: 54px;
+      padding: 12px 10px;
+    }
+
+    .pause-actions button:first-child {
+      background: #77bfff;
+      box-shadow: 0 12px 32px rgba(119, 191, 255, 0.22);
+    }
+
     .controls {
       display: grid;
       gap: 8px;
@@ -189,6 +225,45 @@
 
     .controls span {
       color: #f5f7fb;
+      font-weight: 850;
+    }
+
+    .settings-panel {
+      width: min(100%, 380px);
+      justify-self: center;
+      display: grid;
+      gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.07);
+      text-align: left;
+    }
+
+    .settings-panel label {
+      display: grid;
+      grid-template-columns: 6em 1fr;
+      gap: 10px;
+      align-items: center;
+      color: #c6cfdd;
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .settings-panel span {
+      color: #f5f7fb;
+      font-weight: 850;
+    }
+
+    .settings-panel input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 8px;
+      padding: 9px 10px;
+      color: #f5f7fb;
+      background: rgba(11, 14, 20, 0.9);
+      font: inherit;
       font-weight: 850;
     }
 
@@ -213,6 +288,22 @@
       }
 
       .mode-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .menu {
+        gap: 12px;
+      }
+
+      h1 {
+        font-size: clamp(1.7rem, 9vw, 2.8rem);
+      }
+
+      .phase-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .pause-actions {
         grid-template-columns: 1fr;
       }
 
@@ -262,12 +353,25 @@
               <strong>シューティングゲーム</strong>
               <small>自機を動かして弾を避け、敵を撃ってスコアを伸ばす。</small>
             </button>
-            <button class="mode-button" type="button" data-mode="action">
-              <strong>2Dアクションゲーム</strong>
-              <small>ジャンプと防御だけで進み、距離でスコアを競う。</small>
+            <button class="mode-button" type="button" data-mode="shooting-practice">
+              <strong>弾幕練習</strong>
+              <small>好きなフェーズを選んで、その弾幕だけを繰り返し練習する。</small>
+            </button>
+            <button class="mode-button" type="button" data-mode="boss">
+              <strong>達人級ボス戦</strong>
+              <small>反射弾、高速弾、拡散弾を使う一体の強敵と対戦する。</small>
             </button>
           </div>
+          <div class="phase-grid" id="phaseGrid" hidden></div>
           <div class="controls" id="controls" aria-label="操作方法"></div>
+          <div class="settings-panel" id="settingsPanel">
+            <label for="lifeInput"><span>残機</span><input id="lifeInput" type="number" min="1" max="15" step="1" value="5"></label>
+          </div>
+          <div class="pause-actions" id="pauseActions" hidden>
+            <button type="button" data-pause-action="resume">続行</button>
+            <button type="button" data-pause-action="retry">リトライ</button>
+            <button type="button" data-pause-action="select">ゲーム選択へ</button>
+          </div>
           <button id="startButton" type="button" hidden>開始</button>
         </div>
       </div>
@@ -281,7 +385,11 @@
     const menuTitle = document.getElementById("menuTitle");
     const menuText = document.getElementById("menuText");
     const modeGrid = document.getElementById("modeGrid");
+    const phaseGrid = document.getElementById("phaseGrid");
     const controls = document.getElementById("controls");
+    const settingsPanel = document.getElementById("settingsPanel");
+    const lifeInput = document.getElementById("lifeInput");
+    const pauseActions = document.getElementById("pauseActions");
     const startButton = document.getElementById("startButton");
     const modeLabel = document.getElementById("modeLabel");
     const scoreEl = document.getElementById("score");
@@ -296,20 +404,26 @@
     const keys = new Set();
     const rand = (min, max) => min + Math.random() * (max - min);
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    const MAX_LIVES = 15;
+    const MAX_SPECIAL = 20;
 
     let raf = 0;
     let last = 0;
     let activeMode = "select";
     let selectedMode = "";
     let playing = false;
+    let paused = false;
     let pointerDown = false;
     let godMode = false;
     let secretFlash = 0;
 
     const best = {
       shooting: Number(localStorage.getItem("best-shooting") || 0),
-      action: Number(localStorage.getItem("best-action") || 0)
+      action: Number(localStorage.getItem("best-action") || 0),
+      boss: Number(localStorage.getItem("best-boss") || 0)
     };
+
+    lifeInput.value = String(clamp(Math.floor(Number(localStorage.getItem("initial-lives")) || Number(lifeInput.value) || 5), 1, MAX_LIVES));
 
     const shooting = {
       player: { x: W / 2, y: H - 72, r: 12, lives: 3, bomb: 2, invuln: 0 },
@@ -322,8 +436,11 @@
       time: 0,
       phaseTime: 0,
       phase: 1,
+      practice: false,
+      practicePhase: 1,
       loop: 1,
       spawn: 0,
+      pickupSpawn: 0,
       shot: 0,
       shake: 0
     };
@@ -336,6 +453,15 @@
       { name: "交差包囲", duration: 22, spawn: 1.22, speed: 0.86 },
       { name: "最終波状", duration: 24, spawn: 1.08, speed: 0.92 }
     ];
+
+    shootingPhases.forEach((phase, index) => {
+      const button = document.createElement("button");
+      button.className = "mode-button phase-button";
+      button.type = "button";
+      button.dataset.phase = String(index + 1);
+      button.innerHTML = `<strong>${index + 1}. ${phase.name}</strong><small>${phase.duration}秒の弾幕を繰り返し練習</small>`;
+      phaseGrid.appendChild(button);
+    });
 
     const action = {
       player: { x: 170, y: 376, w: 34, h: 54, vy: 0, life: 3, guard: 100, invuln: 0, onGround: true, guarding: false },
@@ -351,18 +477,55 @@
       groundY: 430
     };
 
+    const bossBattle = {
+      player: { x: W / 2, y: H - 70, r: 12, lives: 4, invuln: 0 },
+      boss: { x: W / 2, y: 110, r: 34, hp: 1800, maxHp: 1800, vx: 0, vy: 0, dash: 0, fire: 0, pattern: 0, patternTime: 0 },
+      bullets: [],
+      shots: [],
+      sparks: [],
+      score: 0,
+      time: 0,
+      shot: 0,
+      shake: 0,
+      result: ""
+    };
+
     for (let i = 0; i < 10; i += 1) {
       action.clouds.push({ x: Math.random() * W, y: rand(48, 190), w: rand(80, 170), v: rand(12, 34), a: rand(0.12, 0.28) });
+    }
+
+    function getControlsHtml(mode) {
+      if (mode === "select") {
+        return "<div><span>選択</span>クリック / タップ</div><div><span>開始</span>モード選択後に開始ボタン</div><div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>スペシャル</span>Q</div><div><span>メニュー</span>Space</div><div><span>落下アイテム</span>青P=スコア+1000 / 緑+=残機+1 最大15 / 黄S=スペシャル+1 最大20</div>";
+      }
+
+      if (mode === "action") {
+        return "<div><span>ジャンプ</span>↑ / クリック</div><div><span>防御</span>↓ / S / 長押し</div><div><span>メニュー</span>Space</div><div><span>戻る</span>Esc</div>";
+      }
+
+      if (mode === "boss") {
+        return "<div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>攻撃</span>自動射撃</div><div><span>メニュー</span>Space</div><div><span>戻る</span>Esc</div>";
+      }
+
+      return "<div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>スペシャル</span>Q / ダブルタップ</div><div><span>メニュー</span>Space</div><div><span>落下アイテム</span>青P=スコア+1000 / 緑+=残機+1 最大15 / 黄S=スペシャル+1 最大20</div><div><span>戻る</span>Esc</div>";
+    }
+
+    function getInitialLives() {
+      return clamp(Math.floor(Number(lifeInput.value) || 5), 1, MAX_LIVES);
     }
 
     function setMenuSelect() {
       activeMode = "select";
       selectedMode = "";
       playing = false;
+      paused = false;
       menuTitle.textContent = "ゲームセレクト";
       menuText.textContent = "遊ぶゲームを選んでください。";
       modeGrid.hidden = false;
-      controls.innerHTML = "";
+      phaseGrid.hidden = true;
+      settingsPanel.hidden = false;
+      pauseActions.hidden = true;
+      controls.innerHTML = getControlsHtml("select");
       startButton.hidden = true;
       overlay.classList.remove("hidden");
       updateHud();
@@ -373,23 +536,83 @@
       activeMode = mode;
       playing = false;
       modeGrid.hidden = true;
+      phaseGrid.hidden = true;
+      settingsPanel.hidden = false;
+      pauseActions.hidden = true;
       startButton.hidden = false;
       startButton.textContent = "開始";
       if (mode === "shooting") {
         menuTitle.textContent = "シューティングゲーム";
         menuText.textContent = "6フェーズを突破して周回しよう。2周目以降は回復アイテムなしで続きます。";
-        controls.innerHTML = "<div><span>移動</span>WASD / 矢印キー / ドラッグ</div><div><span>スペシャル</span>Q / ダブルタップ</div><div><span>戻る</span>Esc</div>";
-      } else {
+        controls.innerHTML = getControlsHtml("shooting");
+      } else if (mode === "shooting-practice") {
+        activeMode = "select";
+        menuTitle.textContent = "弾幕練習";
+        menuText.textContent = "練習したいフェーズを選んでください。最高記録には反映されません。";
+        phaseGrid.hidden = false;
+        startButton.hidden = true;
+        controls.innerHTML = getControlsHtml("shooting");
+      } else if (mode === "boss") {
+        menuTitle.textContent = "達人級ボス戦";
+        menuText.textContent = "高速移動する一体の強敵を撃破しよう。反射弾、高速弾、拡散弾を見切る必要があります。";
+        controls.innerHTML = getControlsHtml("boss");
+      } else if (mode === "action") {
         menuTitle.textContent = "2Dアクションゲーム";
         menuText.textContent = "ジャンプと防御だけで障害物を突破し、進んだ距離でスコアを伸ばそう。";
-        controls.innerHTML = "<div><span>ジャンプ</span>Space / ↑ / クリック</div><div><span>防御</span>Shift / ↓ / 長押し</div><div><span>戻る</span>Esc</div>";
+        controls.innerHTML = getControlsHtml("action");
       }
       updateHud();
     }
 
     function startSelectedMode() {
       if (selectedMode === "shooting") resetShooting();
+      if (selectedMode === "shooting-practice") resetShooting(shooting.practicePhase, true);
+      if (selectedMode === "boss") resetBossBattle();
       if (selectedMode === "action") resetAction();
+    }
+
+    function getActiveControlsMode() {
+      if (activeMode === "action") return "action";
+      if (activeMode === "boss") return "boss";
+      return "shooting";
+    }
+
+    function openPauseMenu() {
+      if (!playing || activeMode === "select") return;
+      playing = false;
+      paused = true;
+      pointerDown = false;
+      keys.clear();
+      menuTitle.textContent = "一時停止";
+      menuText.textContent = "ゲームを続けるか、リトライするか、ゲーム選択へ戻るか選んでください。";
+      modeGrid.hidden = true;
+      phaseGrid.hidden = true;
+      startButton.hidden = true;
+      settingsPanel.hidden = true;
+      pauseActions.hidden = false;
+      controls.innerHTML = getControlsHtml(getActiveControlsMode());
+      overlay.classList.remove("hidden");
+      updateHud();
+    }
+
+    function resumeGame() {
+      if (!paused) return;
+      paused = false;
+      playing = true;
+      pointerDown = false;
+      keys.clear();
+      pauseActions.hidden = true;
+      overlay.classList.add("hidden");
+      updateHud();
+    }
+
+    function retryActiveMode() {
+      const wasPractice = activeMode === "shooting" && shooting.practice;
+      paused = false;
+      pauseActions.hidden = true;
+      if (activeMode === "shooting") resetShooting(wasPractice ? shooting.practicePhase : 1, wasPractice);
+      if (activeMode === "boss") resetBossBattle();
+      if (activeMode === "action") resetAction();
     }
 
     function activateGodMode() {
@@ -399,13 +622,16 @@
       menuText.textContent = "隠しコマンド成功。ダメージを受けない状態になりました。";
       addSpark(shooting.sparks, W / 2, H / 2, "#ffcf54", 42);
       addSpark(action.dust, W / 2, H / 2, "#ffcf54", 42);
+      addSpark(bossBattle.sparks, W / 2, H / 2, "#ffcf54", 42);
       updateHud();
     }
 
-    function resetShooting() {
+    function resetShooting(startPhase = 1, practice = false) {
       activeMode = "shooting";
       playing = true;
-      Object.assign(shooting.player, { x: W / 2, y: H - 72, r: 12, lives: 5, bomb: 2, invuln: 1.8 });
+      paused = false;
+      const phase = clamp(Math.floor(startPhase), 1, shootingPhases.length);
+      Object.assign(shooting.player, { x: W / 2, y: H - 72, r: 12, lives: getInitialLives(), bomb: practice ? 5 : 2, invuln: 1.8 });
       shooting.enemies.length = 0;
       shooting.bullets.length = 0;
       shooting.shots.length = 0;
@@ -414,11 +640,16 @@
       shooting.score = 0;
       shooting.time = 0;
       shooting.phaseTime = 0;
-      shooting.phase = 1;
+      shooting.phase = phase;
+      shooting.practice = practice;
+      shooting.practicePhase = phase;
       shooting.loop = 1;
       shooting.spawn = 0;
+      shooting.pickupSpawn = practice ? 1.2 : 2.2;
       shooting.shot = 0;
       shooting.shake = 0;
+      settingsPanel.hidden = true;
+      pauseActions.hidden = true;
       overlay.classList.add("hidden");
       updateHud();
     }
@@ -426,6 +657,7 @@
     function resetAction() {
       activeMode = "action";
       playing = true;
+      paused = false;
       Object.assign(action.player, { x: 170, y: action.groundY - 54, w: 34, h: 54, vy: 0, life: 3, guard: 100, invuln: 1, onGround: true, guarding: false });
       action.obstacles.length = 0;
       action.dust.length = 0;
@@ -435,24 +667,61 @@
       action.spawn = 0;
       action.nextSpawn = 1;
       action.shake = 0;
+      settingsPanel.hidden = true;
+      pauseActions.hidden = true;
+      overlay.classList.add("hidden");
+      updateHud();
+    }
+
+    function resetBossBattle() {
+      activeMode = "boss";
+      playing = true;
+      paused = false;
+      Object.assign(bossBattle.player, { x: W / 2, y: H - 70, r: 12, lives: getInitialLives(), invuln: 1.6 });
+      Object.assign(bossBattle.boss, { x: W / 2, y: 112, r: 34, hp: 1800, maxHp: 1800, vx: 0, vy: 0, dash: 0.2, fire: 0.6, pattern: 0, patternTime: 0 });
+      bossBattle.bullets.length = 0;
+      bossBattle.shots.length = 0;
+      bossBattle.sparks.length = 0;
+      bossBattle.score = 0;
+      bossBattle.time = 0;
+      bossBattle.shot = 0;
+      bossBattle.shake = 0;
+      bossBattle.result = "";
+      settingsPanel.hidden = true;
+      pauseActions.hidden = true;
       overlay.classList.add("hidden");
       updateHud();
     }
 
     function endGame() {
       playing = false;
+      paused = false;
       if (activeMode === "shooting") {
-        best.shooting = Math.max(best.shooting, Math.floor(shooting.score));
-        localStorage.setItem("best-shooting", String(best.shooting));
-        menuTitle.textContent = "シューティングゲーム";
-        menuText.textContent = `スコア ${Math.floor(shooting.score).toLocaleString("ja-JP")}`;
+        if (!shooting.practice) {
+          best.shooting = Math.max(best.shooting, Math.floor(shooting.score));
+          localStorage.setItem("best-shooting", String(best.shooting));
+        }
+        menuTitle.textContent = shooting.practice ? "弾幕練習" : "シューティングゲーム";
+        menuText.textContent = shooting.practice
+          ? `${getShootingPhase().name}の練習終了`
+          : `スコア ${Math.floor(shooting.score).toLocaleString("ja-JP")}`;
       } else if (activeMode === "action") {
         best.action = Math.max(best.action, Math.floor(action.score));
         localStorage.setItem("best-action", String(best.action));
         menuTitle.textContent = "2Dアクションゲーム";
         menuText.textContent = `記録 ${Math.floor(action.score).toLocaleString("ja-JP")}m`;
+      } else if (activeMode === "boss") {
+        best.boss = Math.max(best.boss, Math.floor(bossBattle.score));
+        localStorage.setItem("best-boss", String(best.boss));
+        menuTitle.textContent = bossBattle.result === "win" ? "撃破成功" : "達人級ボス戦";
+        menuText.textContent = bossBattle.result === "win"
+          ? `撃破スコア ${Math.floor(bossBattle.score).toLocaleString("ja-JP")}`
+          : `到達スコア ${Math.floor(bossBattle.score).toLocaleString("ja-JP")}`;
       }
       modeGrid.hidden = true;
+      phaseGrid.hidden = true;
+      settingsPanel.hidden = false;
+      pauseActions.hidden = true;
       startButton.hidden = false;
       startButton.textContent = "リトライ";
       overlay.classList.remove("hidden");
@@ -482,15 +751,21 @@
     }
 
     function spawnShootingPickup(type, x = W / 2, y = 90) {
-      shooting.pickups.push({ type, x, y, vy: 95, r: type === "life" ? 13 : 11, age: 0 });
+      shooting.pickups.push({ type, x, y, vy: type === "score" ? 115 : 95, r: type === "life" ? 13 : 11, age: 0 });
     }
 
     function spawnShootingPickupWave(count) {
       for (let i = 0; i < count; i += 1) {
-        const type = i === 0 && shooting.phase % 2 === 0 ? "life" : "bomb";
+        const type = i === 0 && shooting.phase % 2 === 0 ? "life" : i % 2 === 0 ? "score" : "bomb";
         const x = 170 + (i / Math.max(1, count - 1)) * (W - 340) + rand(-24, 24);
         spawnShootingPickup(type, clamp(x, 90, W - 90), 70 - i * 14);
       }
+    }
+
+    function spawnShootingStagePickup() {
+      const roll = Math.random();
+      const type = roll < 0.62 ? "score" : roll < 0.82 ? "bomb" : "life";
+      spawnShootingPickup(type, rand(80, W - 80), -24);
     }
 
     function advanceShootingPhase() {
@@ -499,6 +774,16 @@
       s.spawn = 0;
       s.bullets.length = Math.floor(s.bullets.length * 0.35);
       s.enemies.length = Math.floor(s.enemies.length * 0.4);
+
+      if (s.practice) {
+        s.phase = s.practicePhase;
+        s.score += 300;
+        s.player.bomb = Math.max(s.player.bomb, 3);
+        s.player.invuln = Math.max(s.player.invuln, 1.2);
+        addSpark(s.sparks, W / 2, 120, "#77bfff", 24);
+        return;
+      }
+
       s.score += 800 + s.phase * 120;
 
       if (s.loop === 1) {
@@ -551,11 +836,13 @@
         if (Math.hypot(item.x - p.x, item.y - p.y) < item.r + p.r + 16) {
           s.pickups.splice(i, 1);
           if (item.type === "life") {
-            p.lives = Math.min(5, p.lives + 1);
+            p.lives = Math.min(MAX_LIVES, p.lives + 1);
+          } else if (item.type === "score") {
+            s.score += 1000;
           } else {
-            p.bomb = Math.min(5, p.bomb + 1);
+            p.bomb = Math.min(MAX_SPECIAL, p.bomb + 1);
           }
-          addSpark(s.sparks, item.x, item.y, item.type === "life" ? "#55d17a" : "#ffcf54", 14);
+          addSpark(s.sparks, item.x, item.y, item.type === "life" ? "#55d17a" : item.type === "score" ? "#77bfff" : "#ffcf54", 14);
         }
       }
     }
@@ -634,8 +921,9 @@
       if (keys.has("ArrowUp") || keys.has("w")) dy -= 1;
       if (keys.has("ArrowDown") || keys.has("s")) dy += 1;
       const len = Math.hypot(dx, dy) || 1;
-      p.x = clamp(p.x + (dx / len) * 330 * dt, 24, W - 24);
-      p.y = clamp(p.y + (dy / len) * 330 * dt, 38, H - 24);
+      const moveSpeed = keys.has("Shift") ? 145 : 330;
+      p.x = clamp(p.x + (dx / len) * moveSpeed * dt, 24, W - 24);
+      p.y = clamp(p.y + (dy / len) * moveSpeed * dt, 38, H - 24);
 
       s.shot -= dt;
       if (s.shot <= 0) {
@@ -648,6 +936,12 @@
       if (s.spawn >= Math.max(0.38, phaseInfo.spawn - (s.loop - 1) * 0.025)) {
         s.spawn = 0;
         spawnShootingEnemy();
+      }
+
+      s.pickupSpawn -= dt;
+      if (s.pickupSpawn <= 0) {
+        s.pickupSpawn = rand(s.practice ? 4.2 : 5.8, s.practice ? 7.0 : 9.0);
+        spawnShootingStagePickup();
       }
 
       for (let i = s.enemies.length - 1; i >= 0; i -= 1) {
@@ -710,7 +1004,7 @@
       updateParticles(s.sparks, dt);
       p.invuln = Math.max(0, p.invuln - dt);
       s.shake = Math.max(0, s.shake - dt * 28);
-      best.shooting = Math.max(best.shooting, Math.floor(s.score));
+      if (!s.practice) best.shooting = Math.max(best.shooting, Math.floor(s.score));
       updateHud();
     }
 
@@ -773,7 +1067,7 @@
       a.speed = 315 + Math.min(260, a.score * 0.09);
       a.score += (a.speed * dt) / 10;
 
-      p.guarding = (keys.has("Shift") || keys.has("ArrowDown") || keys.has("s") || pointerDown) && p.onGround && p.guard > 0;
+      p.guarding = (keys.has("ArrowDown") || keys.has("s") || pointerDown) && p.onGround && p.guard > 0;
       p.guard = p.guarding ? Math.max(0, p.guard - 28 * dt) : Math.min(100, p.guard + 18 * dt);
       p.vy += 1800 * dt;
       p.y += p.vy * dt;
@@ -818,6 +1112,157 @@
       updateHud();
     }
 
+    function addBossBullet(x, y, angle, speed, r, color, bounce = 0) {
+      bossBattle.bullets.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r,
+        color,
+        bounce
+      });
+    }
+
+    function fireBossPattern() {
+      const b = bossBattle;
+      const boss = b.boss;
+      const player = b.player;
+      const aim = Math.atan2(player.y - boss.y, player.x - boss.x);
+
+      if (boss.pattern === 0) {
+        for (let i = -1; i <= 1; i += 1) {
+          addBossBullet(boss.x, boss.y, aim + i * 0.24, 260, 7, "#b892ff", 3);
+        }
+        return;
+      }
+
+      if (boss.pattern === 1) {
+        for (let i = -1; i <= 1; i += 1) {
+          addBossBullet(boss.x + i * 12, boss.y, aim + i * 0.055, 430, 5, "#ff6b5f", 0);
+        }
+        return;
+      }
+
+      for (let i = -5; i <= 5; i += 1) {
+        addBossBullet(boss.x, boss.y, aim + i * 0.14, 175 + Math.abs(i) * 9, 6, "#ffcf54", 0);
+      }
+    }
+
+    function updateBossBattle(dt) {
+      const b = bossBattle;
+      const player = b.player;
+      const boss = b.boss;
+      b.time += dt;
+      b.score += dt * 18;
+
+      let dx = 0;
+      let dy = 0;
+      if (keys.has("ArrowLeft") || keys.has("a")) dx -= 1;
+      if (keys.has("ArrowRight") || keys.has("d")) dx += 1;
+      if (keys.has("ArrowUp") || keys.has("w")) dy -= 1;
+      if (keys.has("ArrowDown") || keys.has("s")) dy += 1;
+      const len = Math.hypot(dx, dy) || 1;
+      const moveSpeed = keys.has("Shift") ? 155 : 345;
+      player.x = clamp(player.x + (dx / len) * moveSpeed * dt, 24, W - 24);
+      player.y = clamp(player.y + (dy / len) * moveSpeed * dt, 40, H - 24);
+
+      b.shot -= dt;
+      if (b.shot <= 0) {
+        b.shot = 0.07;
+        b.shots.push({ x: player.x - 8, y: player.y - 18, vy: -760, r: 3 });
+        b.shots.push({ x: player.x + 8, y: player.y - 18, vy: -760, r: 3 });
+      }
+
+      boss.patternTime += dt;
+      if (boss.patternTime >= 4.4) {
+        boss.patternTime = 0;
+        boss.pattern = (boss.pattern + 1) % 3;
+        boss.fire = 0.25;
+      }
+
+      boss.dash -= dt;
+      if (boss.dash <= 0) {
+        const targetX = rand(100, W - 100);
+        const targetY = rand(72, 220);
+        const angle = Math.atan2(targetY - boss.y, targetX - boss.x);
+        const speed = rand(410, 560);
+        boss.vx = Math.cos(angle) * speed;
+        boss.vy = Math.sin(angle) * speed;
+        boss.dash = rand(0.55, 0.95);
+        addSpark(b.sparks, boss.x, boss.y, "#8fd3ff", 10);
+      }
+      boss.vx *= 1 - 2.8 * dt;
+      boss.vy *= 1 - 2.8 * dt;
+      boss.x = clamp(boss.x + boss.vx * dt, 56, W - 56);
+      boss.y = clamp(boss.y + boss.vy * dt, 54, 245);
+
+      boss.fire -= dt;
+      if (boss.fire <= 0) {
+        fireBossPattern();
+        boss.fire = boss.pattern === 1 ? 0.42 : boss.pattern === 2 ? 0.85 : 0.7;
+      }
+
+      for (let i = b.shots.length - 1; i >= 0; i -= 1) {
+        const shot = b.shots[i];
+        shot.y += shot.vy * dt;
+        if (shot.y < -20) {
+          b.shots.splice(i, 1);
+          continue;
+        }
+        if (Math.hypot(shot.x - boss.x, shot.y - boss.y) < shot.r + boss.r) {
+          b.shots.splice(i, 1);
+          boss.hp = Math.max(0, boss.hp - 10);
+          b.score += 24;
+          if (boss.hp <= 0) {
+            b.result = "win";
+            b.score += 5000 + Math.max(0, 180 - b.time) * 20;
+            addSpark(b.sparks, boss.x, boss.y, "#ffcf54", 46);
+            endGame();
+            return;
+          }
+        }
+      }
+
+      for (let i = b.bullets.length - 1; i >= 0; i -= 1) {
+        const bullet = b.bullets[i];
+        bullet.x += bullet.vx * dt;
+        bullet.y += bullet.vy * dt;
+        if (bullet.bounce > 0 && (bullet.x < bullet.r || bullet.x > W - bullet.r)) {
+          bullet.x = clamp(bullet.x, bullet.r, W - bullet.r);
+          bullet.vx *= -1;
+          bullet.bounce -= 1;
+        }
+        if (bullet.bounce > 0 && (bullet.y < bullet.r || bullet.y > H - bullet.r)) {
+          bullet.y = clamp(bullet.y, bullet.r, H - bullet.r);
+          bullet.vy *= -1;
+          bullet.bounce -= 1;
+        }
+        if (bullet.x < -50 || bullet.x > W + 50 || bullet.y < -50 || bullet.y > H + 50) {
+          b.bullets.splice(i, 1);
+          continue;
+        }
+        if (!godMode && player.invuln <= 0 && Math.hypot(bullet.x - player.x, bullet.y - player.y) < bullet.r + player.r) {
+          b.bullets.splice(i, 1);
+          player.lives -= 1;
+          player.invuln = 1.5;
+          b.shake = 12;
+          addSpark(b.sparks, player.x, player.y, "#ff6b5f", 18);
+          if (player.lives <= 0) {
+            b.result = "lose";
+            endGame();
+            return;
+          }
+        }
+      }
+
+      updateParticles(b.sparks, dt);
+      player.invuln = Math.max(0, player.invuln - dt);
+      b.shake = Math.max(0, b.shake - dt * 28);
+      best.boss = Math.max(best.boss, Math.floor(b.score));
+      updateHud();
+    }
+
     function updateParticles(list, dt) {
       for (let i = list.length - 1; i >= 0; i -= 1) {
         const p = list[i];
@@ -831,13 +1276,13 @@
 
     function updateHud() {
       if (activeMode === "shooting") {
-        modeLabel.textContent = "シューティング";
+        modeLabel.textContent = shooting.practice ? "弾幕練習" : "シューティング";
         scoreEl.textContent = Math.floor(shooting.score).toLocaleString("ja-JP");
         bestEl.textContent = Math.floor(best.shooting).toLocaleString("ja-JP");
         statALabel.textContent = "残機";
-        statA.textContent = shooting.player.lives;
-        statBLabel.textContent = godMode ? "状態" : "周回";
-        statB.textContent = godMode ? "無敵" : `${shooting.loop}周 ${getShootingPhase().name} / S${shooting.player.bomb}`;
+        statA.textContent = `${shooting.player.lives}/${MAX_LIVES}`;
+        statBLabel.textContent = godMode ? "状態" : shooting.practice ? "フェーズ / SP" : "周回 / SP";
+        statB.textContent = godMode ? "無敵" : shooting.practice ? `${getShootingPhase().name} / SP ${shooting.player.bomb}/${MAX_SPECIAL}` : `${shooting.loop}周 ${getShootingPhase().name} / SP ${shooting.player.bomb}/${MAX_SPECIAL}`;
         return;
       }
       if (activeMode === "action") {
@@ -848,6 +1293,17 @@
         statA.textContent = "1回で終了";
         statBLabel.textContent = godMode ? "状態" : "防御";
         statB.textContent = godMode ? "無敵" : `${Math.ceil(action.player.guard)}%`;
+        return;
+      }
+      if (activeMode === "boss") {
+        const names = ["反射弾", "高速弾", "拡散弾"];
+        modeLabel.textContent = "ボス戦";
+        scoreEl.textContent = Math.floor(bossBattle.score).toLocaleString("ja-JP");
+        bestEl.textContent = Math.floor(best.boss).toLocaleString("ja-JP");
+        statALabel.textContent = "残機";
+        statA.textContent = `${bossBattle.player.lives}/${MAX_LIVES}`;
+        statBLabel.textContent = godMode ? "状態" : "敵HP";
+        statB.textContent = godMode ? "無敵" : `${Math.ceil(bossBattle.boss.hp)} / ${names[bossBattle.boss.pattern]}`;
         return;
       }
       modeLabel.textContent = "選択中";
@@ -902,9 +1358,9 @@
         ctx.save();
         ctx.translate(item.x, item.y);
         ctx.scale(pulse, pulse);
-        ctx.shadowColor = item.type === "life" ? "#55d17a" : "#ffcf54";
+        ctx.shadowColor = item.type === "life" ? "#55d17a" : item.type === "score" ? "#77bfff" : "#ffcf54";
         ctx.shadowBlur = 18;
-        ctx.fillStyle = item.type === "life" ? "#55d17a" : "#ffcf54";
+        ctx.fillStyle = item.type === "life" ? "#55d17a" : item.type === "score" ? "#77bfff" : "#ffcf54";
         ctx.strokeStyle = "#f5f7fb";
         ctx.lineWidth = 3;
         if (item.type === "life") {
@@ -915,6 +1371,24 @@
           ctx.fillStyle = "#101217";
           ctx.fillRect(-3, -10, 6, 20);
           ctx.fillRect(-10, -3, 20, 6);
+        } else if (item.type === "score") {
+          ctx.beginPath();
+          for (let i = 0; i < 10; i += 1) {
+            const radius = i % 2 === 0 ? 21 : 10;
+            const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#101217";
+          ctx.font = '900 17px "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif';
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("P", 0, 1);
         } else {
           ctx.beginPath();
           ctx.moveTo(0, -22);
@@ -1020,6 +1494,89 @@
       drawParticles(a.dust);
     }
 
+    function drawBossBattle(dt) {
+      const b = bossBattle;
+      const boss = b.boss;
+      const player = b.player;
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(245, 247, 251, 0.1)";
+      for (let x = (b.time * 58) % 64; x < W; x += 64) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x - 96, H);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(245, 247, 251, 0.16)";
+      ctx.fillRect(120, 24, W - 240, 13);
+      ctx.fillStyle = "#ff6b5f";
+      ctx.fillRect(120, 24, (W - 240) * clamp(boss.hp / boss.maxHp, 0, 1), 13);
+
+      for (const shot of b.shots) {
+        ctx.fillStyle = "#f5f7fb";
+        ctx.fillRect(shot.x - 2, shot.y - 13, 4, 22);
+      }
+
+      for (const bullet of b.bullets) {
+        ctx.fillStyle = bullet.color;
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
+        ctx.fill();
+        if (bullet.bounce > 0) {
+          ctx.strokeStyle = "rgba(245, 247, 251, 0.62)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      ctx.save();
+      ctx.translate(boss.x, boss.y);
+      ctx.rotate(Math.sin(b.time * 9) * 0.08);
+      ctx.shadowColor = "#ff6b5f";
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = "#ff6b5f";
+      ctx.beginPath();
+      ctx.moveTo(0, -42);
+      ctx.lineTo(36, -8);
+      ctx.lineTo(26, 34);
+      ctx.lineTo(0, 48);
+      ctx.lineTo(-26, 34);
+      ctx.lineTo(-36, -8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#101217";
+      ctx.beginPath();
+      ctx.arc(-12, -6, 6, 0, Math.PI * 2);
+      ctx.arc(12, -6, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffcf54";
+      ctx.beginPath();
+      ctx.arc(0, 18, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      if (player.invuln > 0 && Math.floor(b.time * 18) % 2 === 0) ctx.globalAlpha = 0.45;
+      ctx.fillStyle = "#77bfff";
+      ctx.beginPath();
+      ctx.moveTo(0, -20);
+      ctx.lineTo(16, 17);
+      ctx.lineTo(0, 9);
+      ctx.lineTo(-16, 17);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#f5f7fb";
+      ctx.beginPath();
+      ctx.arc(0, 0, player.r * 0.32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      drawParticles(b.sparks);
+    }
+
     function drawParticles(list) {
       for (const p of list) {
         const alpha = clamp(p.life / p.max, 0, 1);
@@ -1035,10 +1592,11 @@
 
     function draw(dt) {
       ctx.save();
-      const shake = activeMode === "shooting" ? shooting.shake : activeMode === "action" ? action.shake : 0;
+      const shake = activeMode === "shooting" ? shooting.shake : activeMode === "action" ? action.shake : activeMode === "boss" ? bossBattle.shake : 0;
       if (shake > 0) ctx.translate(rand(-shake, shake), rand(-shake, shake));
       if (activeMode === "shooting") drawShooting(dt);
       else if (activeMode === "action") drawAction(dt);
+      else if (activeMode === "boss") drawBossBattle(dt);
       else {
         ctx.fillStyle = "#111923";
         ctx.fillRect(0, 0, W, H);
@@ -1070,6 +1628,7 @@
       last = now;
       if (playing && activeMode === "shooting") updateShooting(dt);
       if (playing && activeMode === "action") updateAction(dt);
+      if (playing && activeMode === "boss") updateBossBattle(dt);
       secretFlash = Math.max(0, secretFlash - dt);
       draw(dt);
       raf = requestAnimationFrame(loop);
@@ -1081,10 +1640,37 @@
       selectMode(button.dataset.mode);
     });
 
+    phaseGrid.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-phase]");
+      if (!button) return;
+      const phase = Number(button.dataset.phase);
+      selectedMode = "shooting-practice";
+      shooting.practicePhase = phase;
+      resetShooting(phase, true);
+    });
+
     startButton.addEventListener("click", startSelectedMode);
+
+    lifeInput.addEventListener("input", () => {
+      lifeInput.value = String(getInitialLives());
+      localStorage.setItem("initial-lives", lifeInput.value);
+    });
+
+    pauseActions.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-pause-action]");
+      if (!button) return;
+      if (button.dataset.pauseAction === "resume") resumeGame();
+      if (button.dataset.pauseAction === "retry") retryActiveMode();
+      if (button.dataset.pauseAction === "select") setMenuSelect();
+    });
 
     window.addEventListener("keydown", (event) => {
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      if (key === " ") {
+        event.preventDefault();
+        if (playing && !event.repeat) openPauseMenu();
+        return;
+      }
       keys.add(key);
       if (!playing && (key === "x" || event.code === "KeyX")) {
         event.preventDefault();
@@ -1097,7 +1683,7 @@
       }
       if ((key === "Enter" || key === "r") && !playing && selectedMode) startSelectedMode();
       if (activeMode === "shooting" && key === "q") useShootingBomb();
-      if (activeMode === "action" && (key === " " || key === "ArrowUp" || key === "w")) {
+      if (activeMode === "action" && (key === "ArrowUp" || key === "w")) {
         event.preventDefault();
         jumpAction();
       }
@@ -1116,14 +1702,25 @@
         shooting.player.x = ((event.clientX - rect.left) / rect.width) * W;
         shooting.player.y = ((event.clientY - rect.top) / rect.height) * H;
       }
+      if (activeMode === "boss") {
+        const rect = canvas.getBoundingClientRect();
+        bossBattle.player.x = ((event.clientX - rect.left) / rect.width) * W;
+        bossBattle.player.y = ((event.clientY - rect.top) / rect.height) * H;
+      }
       if (activeMode === "action") jumpAction();
     });
 
     canvas.addEventListener("pointermove", (event) => {
-      if (!playing || activeMode !== "shooting" || !pointerDown) return;
+      if (!playing || !pointerDown) return;
       const rect = canvas.getBoundingClientRect();
-      shooting.player.x = clamp(((event.clientX - rect.left) / rect.width) * W, 24, W - 24);
-      shooting.player.y = clamp(((event.clientY - rect.top) / rect.height) * H, 38, H - 24);
+      if (activeMode === "shooting") {
+        shooting.player.x = clamp(((event.clientX - rect.left) / rect.width) * W, 24, W - 24);
+        shooting.player.y = clamp(((event.clientY - rect.top) / rect.height) * H, 38, H - 24);
+      }
+      if (activeMode === "boss") {
+        bossBattle.player.x = clamp(((event.clientX - rect.left) / rect.width) * W, 24, W - 24);
+        bossBattle.player.y = clamp(((event.clientY - rect.top) / rect.height) * H, 38, H - 24);
+      }
     });
 
     canvas.addEventListener("pointerup", () => {
