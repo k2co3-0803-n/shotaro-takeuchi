@@ -406,6 +406,7 @@
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
     const MAX_LIVES = 15;
     const MAX_SPECIAL = 20;
+    const BOSS_SPECIAL = 5;
 
     let raf = 0;
     let last = 0;
@@ -485,6 +486,7 @@
       sparks: [],
       score: 0,
       time: 0,
+      special: BOSS_SPECIAL,
       shot: 0,
       shake: 0,
       result: ""
@@ -504,7 +506,7 @@
       }
 
       if (mode === "boss") {
-        return "<div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>攻撃</span>自動射撃</div><div><span>メニュー</span>Space</div><div><span>戻る</span>Esc</div>";
+        return "<div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>スペシャル</span>Q</div><div><span>攻撃</span>自動射撃</div><div><span>メニュー</span>Space</div><div><span>戻る</span>Esc</div>";
       }
 
       return "<div><span>通常移動</span>WASD / 矢印キー / ドラッグ</div><div><span>低速移動</span>Shift</div><div><span>スペシャル</span>Q / ダブルタップ</div><div><span>メニュー</span>Space</div><div><span>落下アイテム</span>青P=スコア+1000 / 緑+=残機+1 最大15 / 黄S=スペシャル+1 最大20</div><div><span>戻る</span>Esc</div>";
@@ -684,6 +686,7 @@
       bossBattle.sparks.length = 0;
       bossBattle.score = 0;
       bossBattle.time = 0;
+      bossBattle.special = BOSS_SPECIAL;
       bossBattle.shot = 0;
       bossBattle.shake = 0;
       bossBattle.result = "";
@@ -743,6 +746,18 @@
       s.score += 500;
       s.shake = 6;
       addSpark(s.sparks, s.player.x, s.player.y, "#77bfff", 28);
+      updateHud();
+    }
+
+    function useBossSpecial() {
+      const b = bossBattle;
+      if (!playing || activeMode !== "boss" || b.special <= 0) return;
+      b.special -= 1;
+      b.bullets.length = 0;
+      b.player.invuln = Math.max(b.player.invuln, 1.6);
+      b.score += 700;
+      b.shake = 7;
+      addSpark(b.sparks, b.player.x, b.player.y, "#77bfff", 30);
       updateHud();
     }
 
@@ -1302,8 +1317,8 @@
         bestEl.textContent = Math.floor(best.boss).toLocaleString("ja-JP");
         statALabel.textContent = "残機";
         statA.textContent = `${bossBattle.player.lives}/${MAX_LIVES}`;
-        statBLabel.textContent = godMode ? "状態" : "敵HP";
-        statB.textContent = godMode ? "無敵" : `${Math.ceil(bossBattle.boss.hp)} / ${names[bossBattle.boss.pattern]}`;
+        statBLabel.textContent = godMode ? "状態" : "敵HP / SP";
+        statB.textContent = godMode ? "無敵" : `${Math.ceil(bossBattle.boss.hp)} ${names[bossBattle.boss.pattern]} / SP ${bossBattle.special}/${BOSS_SPECIAL}`;
         return;
       }
       modeLabel.textContent = "選択中";
@@ -1498,27 +1513,85 @@
       const b = bossBattle;
       const boss = b.boss;
       const player = b.player;
-      ctx.fillStyle = "#111827";
+      const hpRatio = clamp(boss.hp / boss.maxHp, 0, 1);
+      const pulse = 0.5 + Math.sin(b.time * 5.4) * 0.5;
+      const danger = 1 - hpRatio;
+      ctx.fillStyle = "#080a16";
       ctx.fillRect(0, 0, W, H);
-      ctx.strokeStyle = "rgba(245, 247, 251, 0.1)";
-      for (let x = (b.time * 58) % 64; x < W; x += 64) {
+
+      const arena = ctx.createRadialGradient(boss.x, boss.y, 20, boss.x, boss.y, 560);
+      arena.addColorStop(0, `rgba(255, 107, 95, ${0.28 + danger * 0.24})`);
+      arena.addColorStop(0.34, "rgba(119, 191, 255, 0.13)");
+      arena.addColorStop(1, "rgba(8, 10, 22, 0)");
+      ctx.fillStyle = arena;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = "rgba(119, 191, 255, 0.16)";
+      ctx.lineWidth = 1;
+      for (let x = (b.time * 92) % 64; x < W + 96; x += 64) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x - 96, H);
         ctx.stroke();
       }
+      ctx.strokeStyle = `rgba(255, 207, 84, ${0.09 + pulse * 0.08})`;
+      for (let y = (b.time * 120) % 42; y < H; y += 42) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y + Math.sin(b.time * 4 + y * 0.02) * 10);
+        ctx.stroke();
+      }
 
-      ctx.fillStyle = "rgba(245, 247, 251, 0.16)";
-      ctx.fillRect(120, 24, W - 240, 13);
-      ctx.fillStyle = "#ff6b5f";
-      ctx.fillRect(120, 24, (W - 240) * clamp(boss.hp / boss.maxHp, 0, 1), 13);
+      for (let i = 0; i < 3; i += 1) {
+        const r = 82 + i * 42 + pulse * 18;
+        ctx.save();
+        ctx.translate(boss.x, boss.y);
+        ctx.rotate(b.time * (0.8 + i * 0.18) * (i % 2 ? -1 : 1));
+        ctx.strokeStyle = i === 1 ? "rgba(119, 191, 255, 0.24)" : "rgba(255, 207, 84, 0.22)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, r, r * 0.34, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.fillStyle = "rgba(245, 247, 251, 0.14)";
+      ctx.fillRect(118, 21, W - 236, 20);
+      ctx.fillStyle = "#101217";
+      ctx.fillRect(122, 25, W - 244, 12);
+      const hpGradient = ctx.createLinearGradient(122, 0, W - 122, 0);
+      hpGradient.addColorStop(0, "#ffcf54");
+      hpGradient.addColorStop(0.45, "#ff6b5f");
+      hpGradient.addColorStop(1, "#b892ff");
+      ctx.fillStyle = hpGradient;
+      ctx.shadowColor = "#ff6b5f";
+      ctx.shadowBlur = 14;
+      ctx.fillRect(122, 25, (W - 244) * hpRatio, 12);
+      ctx.shadowBlur = 0;
 
       for (const shot of b.shots) {
+        ctx.save();
+        ctx.shadowColor = "#f5f7fb";
+        ctx.shadowBlur = 10;
         ctx.fillStyle = "#f5f7fb";
-        ctx.fillRect(shot.x - 2, shot.y - 13, 4, 22);
+        ctx.fillRect(shot.x - 2, shot.y - 16, 4, 26);
+        ctx.fillStyle = "rgba(119, 191, 255, 0.5)";
+        ctx.fillRect(shot.x - 5, shot.y - 4, 10, 18);
+        ctx.restore();
       }
 
       for (const bullet of b.bullets) {
+        ctx.save();
+        ctx.globalAlpha = 0.26;
+        ctx.strokeStyle = bullet.color;
+        ctx.lineWidth = bullet.r * 1.15;
+        ctx.beginPath();
+        ctx.moveTo(bullet.x, bullet.y);
+        ctx.lineTo(bullet.x - bullet.vx * 0.055, bullet.y - bullet.vy * 0.055);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.shadowColor = bullet.color;
+        ctx.shadowBlur = bullet.bounce > 0 ? 18 : 10;
         ctx.fillStyle = bullet.color;
         ctx.beginPath();
         ctx.arc(bullet.x, bullet.y, bullet.r, 0, Math.PI * 2);
@@ -1528,13 +1601,25 @@
           ctx.lineWidth = 2;
           ctx.stroke();
         }
+        ctx.restore();
       }
 
       ctx.save();
       ctx.translate(boss.x, boss.y);
       ctx.rotate(Math.sin(b.time * 9) * 0.08);
+      ctx.globalAlpha = 0.28 + danger * 0.2;
+      ctx.fillStyle = "#ff6b5f";
+      ctx.beginPath();
+      ctx.arc(0, 0, 82 + pulse * 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = `rgba(255, 207, 84, ${0.45 + pulse * 0.28})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(0, 0, 52 + pulse * 9, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.shadowColor = "#ff6b5f";
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 36;
       ctx.fillStyle = "#ff6b5f";
       ctx.beginPath();
       ctx.moveTo(0, -42);
@@ -1545,6 +1630,9 @@
       ctx.lineTo(-36, -8);
       ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = "#f5f7fb";
+      ctx.lineWidth = 2;
+      ctx.stroke();
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#101217";
       ctx.beginPath();
@@ -1555,11 +1643,22 @@
       ctx.beginPath();
       ctx.arc(0, 18, 9, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = "rgba(245, 247, 251, 0.72)";
+      ctx.fillRect(-28, -46, 56, 5);
       ctx.restore();
 
       ctx.save();
       ctx.translate(player.x, player.y);
       if (player.invuln > 0 && Math.floor(b.time * 18) % 2 === 0) ctx.globalAlpha = 0.45;
+      if (player.invuln > 0) {
+        ctx.strokeStyle = "rgba(119, 191, 255, 0.55)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, 28 + Math.sin(b.time * 12) * 4, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.shadowColor = "#77bfff";
+      ctx.shadowBlur = 18;
       ctx.fillStyle = "#77bfff";
       ctx.beginPath();
       ctx.moveTo(0, -20);
@@ -1572,6 +1671,11 @@
       ctx.beginPath();
       ctx.arc(0, 0, player.r * 0.32, 0, Math.PI * 2);
       ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffcf54";
+      for (let i = 0; i < b.special; i += 1) {
+        ctx.fillRect(-18 + i * 7, 24, 4, 10);
+      }
       ctx.restore();
 
       drawParticles(b.sparks);
@@ -1683,6 +1787,7 @@
       }
       if ((key === "Enter" || key === "r") && !playing && selectedMode) startSelectedMode();
       if (activeMode === "shooting" && key === "q") useShootingBomb();
+      if (activeMode === "boss" && key === "q") useBossSpecial();
       if (activeMode === "action" && (key === "ArrowUp" || key === "w")) {
         event.preventDefault();
         jumpAction();
